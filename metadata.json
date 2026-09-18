@@ -1,0 +1,6 @@
+{
+  "name": "보카런 (Voca Run)",
+  "description": "중학교 1학년 교과서 필수 영어 단어를 문장으로 재미있게 학습하는 3레인 달리기 영어 게임 웹앱",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
