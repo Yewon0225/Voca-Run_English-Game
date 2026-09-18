@@ -32,6 +32,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const answersRef = useRef<UserAnswer[]>([]);
   answersRef.current = answers;
 
+  // Streak & Fever Mode (5 consecutive correct answers trigger Fever Time!)
+  const [streak, setStreak] = useState<number>(0);
+  const streakRef = useRef<number>(0);
+  streakRef.current = streak;
+  const isFeverMode = streak >= 5;
+  const [showFeverActivation, setShowFeverActivation] = useState<boolean>(false);
+
   // Character lane: 0 (top), 1 (middle), 2 (bottom)
   const [characterLane, setCharacterLane] = useState<number>(1);
   const [characterState, setCharacterState] = useState<'running' | 'correct' | 'wrong'>('running');
@@ -65,6 +72,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(soundManager.isMuted);
 
   const currentQuestion = questions[currentIndex];
+
+  // Start background running music on mount, and clean up when leaving
+  useEffect(() => {
+    soundManager.startBgm(false);
+    return () => {
+      soundManager.stopBgm();
+    };
+  }, []);
 
   // Reset state on each new question
   useEffect(() => {
@@ -128,9 +143,29 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setAnswers(nextAnswers);
 
     if (isCorrect && option) {
-      soundManager.playCorrect();
+      // Streak handling & Fever mode activation!
+      const prevStreak = streakRef.current;
+      const newStreak = prevStreak + 1;
+      streakRef.current = newStreak;
+      setStreak(newStreak);
+
+      const isFeverNow = newStreak >= 5;
+      if (newStreak === 5) {
+        // Trigger Fever Mode Announcement & fast upbeat Fever BGM!
+        setShowFeverActivation(true);
+        soundManager.playFeverStart();
+        soundManager.setFeverMode(true);
+        setTimeout(() => setShowFeverActivation(false), 1700);
+      } else if (newStreak > 5) {
+        soundManager.setFeverMode(true);
+      }
+
+      soundManager.playCorrect(isFeverNow);
       setCharacterState('correct');
-      const nextScore = score + 10;
+
+      // Score bonus: +10 pts normal, +20 pts in Fever Mode (2x acceleration!)
+      const earnedScore = isFeverNow ? 20 : 10;
+      const nextScore = score + earnedScore;
       setScore(nextScore);
       setShowScorePopup(true);
       setTimeout(() => setShowScorePopup(false), 800);
@@ -150,12 +185,21 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             if (currentIndex + 1 < questions.length) {
               setCurrentIndex(prev => prev + 1);
             } else {
+              soundManager.stopBgm();
               onFinishGame(nextAnswers, nextScore);
             }
           }, 600);
         });
       }, 300);
     } else {
+      // Reset streak and break Fever mode
+      if (streakRef.current >= 5) {
+        soundManager.playFeverEnd();
+      }
+      streakRef.current = 0;
+      setStreak(0);
+      soundManager.setFeverMode(false);
+
       soundManager.playWrong();
       setCharacterState('wrong');
 
@@ -172,6 +216,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             if (currentIndex + 1 < questions.length) {
               setCurrentIndex(prev => prev + 1);
             } else {
+              soundManager.stopBgm();
               onFinishGame(nextAnswers, score);
             }
           }, 650);
@@ -256,6 +301,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handleConfirmExit = () => {
     soundManager.playClick();
+    soundManager.stopBgm();
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -279,9 +325,26 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   );
 
   return (
-    <div className="w-full h-full flex flex-col justify-between items-center px-4 py-3 select-none relative overflow-hidden bg-gradient-to-b from-amber-50/70 via-pink-50/60 to-rose-50/70">
-      {/* 1. Header (문제 번호, 오디오 제어, 점수) */}
-      <div className="w-full flex items-center justify-between pb-2 border-b border-pink-200/70">
+    <div
+      className={`w-full h-full flex flex-col justify-between items-center px-4 py-3 select-none relative overflow-hidden transition-all duration-700 ${
+        isFeverMode
+          ? 'bg-gradient-to-b from-amber-100/90 via-yellow-100/80 to-amber-200/90'
+          : 'bg-gradient-to-b from-amber-50/70 via-pink-50/60 to-rose-50/70'
+      }`}
+    >
+      {/* Golden Fever Shimmer Particle Background */}
+      {isFeverMode && (
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-amber-400/10 via-yellow-300/20 to-amber-400/10 animate-pulse" />
+          <div className="absolute -top-12 left-1/4 w-40 h-[600px] bg-yellow-300/20 rotate-12 blur-3xl pointer-events-none" />
+          <div className="absolute -top-12 right-1/4 w-40 h-[600px] bg-amber-400/20 -rotate-12 blur-3xl pointer-events-none" />
+        </div>
+      )}
+
+      {/* 1. Header (문제 번호, 콤보/피버 표시, 오디오 제어, 점수) */}
+      <div className={`w-full flex items-center justify-between pb-2 border-b z-10 transition-colors ${
+        isFeverMode ? 'border-amber-300/90' : 'border-pink-200/70'
+      }`}>
         <div className="flex items-center gap-2">
           <span className="text-2xl font-black text-slate-800 tracking-tight">
             {currentIndex + 1}/{questions.length}
@@ -294,45 +357,77 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            id="btn-speak-sentence"
-            onClick={() => speakEnglish(currentQuestion.sentence)}
-            className="p-1.5 rounded-full text-pink-600 hover:bg-pink-100/80 transition-colors"
-            title="문장 영어 발음 듣기"
-          >
-            <Volume1 className="w-5 h-5" />
-          </button>
-          <button
-            id="btn-toggle-sound"
-            onClick={() => {
-              const muted = soundManager.toggleMute();
-              setIsMuted(muted);
-              if (!muted) soundManager.playClick();
-            }}
-            className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-            title={isMuted ? '소리 켜기' : '소리 끄기'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-pink-500" />}
-          </button>
+        {/* Combo / Fever Status Badge */}
+        <div className="flex items-center">
+          {isFeverMode ? (
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ repeat: Infinity, duration: 1.2 }}
+              className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_16px_rgba(245,158,11,0.6)] border border-yellow-200"
+            >
+              <span className="text-sm animate-bounce">🔥</span>
+              <span className="tracking-wide">FEVER TIME!</span>
+              <span className="bg-amber-950/80 text-amber-200 text-[10px] px-1.5 py-0.5 rounded-md font-black">
+                {streak}연속 • 2배
+              </span>
+            </motion.div>
+          ) : streak >= 2 ? (
+            <div className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-100/90 text-amber-900 border border-amber-300 font-black text-xs rounded-xl shadow-2xs">
+              <span>⚡</span>
+              <span>{streak} COMBO</span>
+            </div>
+          ) : null}
         </div>
 
-        <div className="relative flex items-center">
-          <span className="text-lg font-black text-amber-900 bg-amber-100/95 px-3 py-1 rounded-xl border border-amber-300 shadow-xs">
-            점수: {score}
-          </span>
-          <AnimatePresence>
-            {showScorePopup && (
-              <motion.div
-                initial={{ opacity: 0, y: 0, scale: 0.7 }}
-                animate={{ opacity: 1, y: -24, scale: 1.2 }}
-                exit={{ opacity: 0 }}
-                className="absolute -top-4 right-0 font-black text-emerald-600 text-sm bg-white px-2 py-0.5 rounded-full shadow border border-emerald-300 pointer-events-none"
-              >
-                +10점!
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              id="btn-speak-sentence"
+              onClick={() => speakEnglish(currentQuestion.sentence)}
+              className="p-1.5 rounded-full text-pink-600 hover:bg-pink-100/80 transition-colors"
+              title="문장 영어 발음 듣기"
+            >
+              <Volume1 className="w-5 h-5" />
+            </button>
+            <button
+              id="btn-toggle-sound"
+              onClick={() => {
+                const muted = soundManager.toggleMute();
+                setIsMuted(muted);
+                if (!muted) soundManager.playClick();
+              }}
+              className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              title={isMuted ? '소리 켜기' : '소리 끄기'}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-pink-500" />}
+            </button>
+          </div>
+
+          <div className="relative flex items-center">
+            <span className={`text-lg font-black px-3 py-1 rounded-xl border shadow-xs transition-colors ${
+              isFeverMode
+                ? 'text-amber-950 bg-amber-200/95 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]'
+                : 'text-amber-900 bg-amber-100/95 border-amber-300'
+            }`}>
+              점수: {score}
+            </span>
+            <AnimatePresence>
+              {showScorePopup && (
+                <motion.div
+                  initial={{ opacity: 0, y: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, y: -24, scale: 1.2 }}
+                  exit={{ opacity: 0 }}
+                  className={`absolute -top-4 right-0 font-black text-sm px-2.5 py-0.5 rounded-full shadow pointer-events-none ${
+                    isFeverMode
+                      ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border border-yellow-200 shadow-md font-black'
+                      : 'text-emerald-600 bg-white border border-emerald-300'
+                  }`}
+                >
+                  {isFeverMode ? '🔥 +20점! (FEVER 2배)' : '+10점!'}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -410,12 +505,51 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         </div>
       </div>
 
-      {/* 4. Three Running Lanes with Word Cards & Obstacles */}
+      {/* 4. Three Running Lanes with Word Cards & Obstacles (Golden Lanes in Fever Mode!) */}
       <div className="w-full flex-1 flex flex-col justify-center my-1 relative">
-        <div className="w-full h-[255px] relative flex flex-col justify-between py-1">
-          {/* Subtle lane divider lines */}
-          <div className="absolute top-[85px] left-0 right-0 h-0.5 border-b border-dashed border-pink-300/80 z-0" />
-          <div className="absolute top-[170px] left-0 right-0 h-0.5 border-b border-dashed border-pink-300/80 z-0" />
+        <div className={`w-full h-[255px] relative flex flex-col justify-between py-1 rounded-2xl transition-all duration-500 ${
+          isFeverMode
+            ? 'bg-amber-400/15 ring-2 ring-amber-400/90 shadow-[0_0_35px_rgba(245,158,11,0.4)] px-1'
+            : ''
+        }`}>
+          {/* Subtle lane divider lines (Golden glow in Fever Mode!) */}
+          <div className={`absolute top-[85px] left-0 right-0 h-0.5 border-b z-0 transition-colors ${
+            isFeverMode
+              ? 'border-dashed border-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)]'
+              : 'border-dashed border-pink-300/80'
+          }`} />
+          <div className={`absolute top-[170px] left-0 right-0 h-0.5 border-b z-0 transition-colors ${
+            isFeverMode
+              ? 'border-dashed border-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)]'
+              : 'border-dashed border-pink-300/80'
+          }`} />
+
+          {/* Floating golden stars/sparks along the track in Fever Mode */}
+          {isFeverMode && (
+            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+              <motion.span
+                className="absolute top-2 right-8 text-amber-500 text-sm"
+                animate={{ y: [-2, 2, -2], opacity: [0.5, 1, 0.5], rotate: [0, 15, 0] }}
+                transition={{ repeat: Infinity, duration: 1.2 }}
+              >
+                ✨
+              </motion.span>
+              <motion.span
+                className="absolute bottom-3 left-12 text-yellow-500 text-xs"
+                animate={{ y: [2, -2, 2], opacity: [0.4, 0.9, 0.4], rotate: [0, -20, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+              >
+                ⭐
+              </motion.span>
+              <motion.span
+                className="absolute top-1/2 right-16 text-amber-500 text-xs"
+                animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.5, 1, 0.5] }}
+                transition={{ repeat: Infinity, duration: 1 }}
+              >
+                ✨
+              </motion.span>
+            </div>
+          )}
 
           {currentQuestion.options.map((option, laneIdx) => {
             const isSelected = selectedOptionId === option.id;
@@ -429,7 +563,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             return (
               <div key={`q-${currentQuestion.id}-lane-${laneIdx}-${option.id}`} className="relative w-full flex items-center z-10">
                 {/* Lane Track Number & Indicator */}
-                <div className="absolute left-18 text-xs font-black text-slate-400 pointer-events-none">
+                <div className={`absolute left-18 text-xs font-black pointer-events-none transition-colors ${
+                  isFeverMode ? 'text-amber-700' : 'text-slate-400'
+                }`}>
                   {laneIdx + 1}
                 </div>
 
@@ -455,6 +591,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                       ? { x: [-6, 6, -6, 6, 0], backgroundColor: '#fee2e2' }
                       : showAsCorrect
                       ? { scale: [1, 1.04, 1], backgroundColor: '#dcfce7' }
+                      : isFeverMode
+                      ? { x: 0, scale: 1, backgroundColor: characterLane === laneIdx ? '#fef3c7' : '#ffffff' }
                       : { x: 0, scale: 1, backgroundColor: '#ffffff' }
                   }
                   onClick={() => handleSelectOption(option, laneIdx)}
@@ -464,6 +602,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-3 ring-emerald-300'
                       : showAsWrong
                       ? 'border-rose-500 bg-rose-50 text-rose-900'
+                      : isFeverMode
+                      ? characterLane === laneIdx
+                        ? 'border-amber-500 bg-amber-100/90 text-amber-950 shadow-md ring-2 ring-amber-300'
+                        : 'border-amber-300 bg-white/95 text-slate-800 hover:border-amber-500 hover:bg-amber-50/50 shadow-xs'
                       : characterLane === laneIdx
                       ? 'border-pink-500 bg-white text-slate-900 shadow-md ring-2 ring-pink-200'
                       : 'border-slate-800 bg-white text-slate-800 hover:border-pink-500 hover:bg-pink-50/40'
@@ -487,7 +629,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                       </span>
                     )}
                     {!isAnswerSubmitted && (
-                      <span className="text-xs font-bold text-slate-300">
+                      <span className={`text-xs font-bold ${isFeverMode ? 'text-amber-600' : 'text-slate-300'}`}>
                         {laneIdx + 1}번 레인
                       </span>
                     )}
@@ -511,6 +653,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               damping: 24
             }}
           >
+            {/* Radiant Flame Aura behind runner in Fever Mode! */}
+            {isFeverMode && (
+              <motion.div
+                className="absolute -inset-2 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-full blur-md opacity-75 -z-10"
+                animate={{ scale: [0.95, 1.2, 0.95], opacity: [0.6, 0.9, 0.6] }}
+                transition={{ repeat: Infinity, duration: 0.6 }}
+              />
+            )}
             <RunningCharacter
               state={characterState}
               size={66}
@@ -519,6 +669,29 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           </motion.div>
         </div>
       </div>
+
+      {/* Fever Mode Central Announcement Banner (5-streak trigger) */}
+      <AnimatePresence>
+        {showFeverActivation && (
+          <div className="fixed inset-0 z-45 pointer-events-none flex items-center justify-center p-4 select-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 1.15, y: -20 }}
+              transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+              className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 px-8 py-5 rounded-3xl shadow-[0_0_50px_rgba(251,191,36,0.9)] border-4 border-white flex flex-col items-center text-center"
+            >
+              <div className="text-4xl animate-bounce mb-1">🔥⚡👑</div>
+              <div className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 drop-shadow-xs">
+                FEVER MODE 발동!
+              </div>
+              <div className="text-xs sm:text-sm font-black text-amber-950 bg-white/85 px-3.5 py-1 rounded-full mt-2 shadow-xs">
+                5연속 정답 돌파! 황금빛 레인 & 점수 2배 가속!
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* 5. Center Zoomed Word Card (정답 시 화면 중앙 크게 확대 + 영어/한국어 뜻 제공) */}
       <AnimatePresence>

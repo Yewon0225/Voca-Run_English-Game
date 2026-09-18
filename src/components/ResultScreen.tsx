@@ -41,6 +41,19 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const isPerfect = correctCount === totalQuestions;
   const isGood = correctCount >= Math.ceil(totalQuestions * 0.7);
 
+  // Calculate highest consecutive correct streak
+  const maxStreak = React.useMemo(() => {
+    return answers.reduce((acc, curr) => {
+      if (curr.isCorrect) {
+        acc.curr += 1;
+        acc.max = Math.max(acc.max, acc.curr);
+      } else {
+        acc.curr = 0;
+      }
+      return acc;
+    }, { curr: 0, max: 0 }).max;
+  }, [answers]);
+
   useEffect(() => {
     soundManager.playFanfare();
 
@@ -88,12 +101,20 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <span>총 누적 점수: <strong className="text-amber-700 font-black">{totalScore}점</strong></span>
           </div>
 
-          <div className="mt-2 inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-amber-200/90 text-amber-950 border border-amber-300">
-            {isPerfect
-              ? '🌟 완벽해요! 모든 교과서 단어 완벽 마스터!'
-              : isGood
-              ? '👍 훌륭해요! 조금만 더 하면 만점!'
-              : '💪 틀린 단어를 복습하고 다시 도전해보세요!'}
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-amber-200/90 text-amber-950 border border-amber-300">
+              {isPerfect
+                ? '🌟 완벽해요! 모든 교과서 단어 완벽 마스터!'
+                : isGood
+                ? '👍 훌륭해요! 조금만 더 하면 만점!'
+                : '💪 틀린 단어를 복습하고 다시 도전해보세요!'}
+            </span>
+            {maxStreak >= 5 && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-slate-950 border border-yellow-200 shadow-xs">
+                <span>🔥</span>
+                <span>최고 {maxStreak}연속 피버 모드 달성!</span>
+              </span>
+            )}
           </div>
         </div>
       </div>
