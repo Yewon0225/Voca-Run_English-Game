@@ -85,13 +85,13 @@ export const AppsScriptSyncCard: React.FC<AppsScriptSyncCardProps> = ({
           </div>
           <div>
             <div className="text-xs sm:text-sm font-black text-emerald-950 flex items-center gap-1.5">
-              <span>구글 시트 문장별 탭(Tap) 빈도 & 평균 저장</span>
+              <span>Google Sheets 실시간 동기화</span>
               <span className="text-[10px] font-bold bg-emerald-200/90 text-emerald-900 px-1.5 py-0.5 rounded-md">
                 .env.local 연동
               </span>
             </div>
             <div className="text-[11px] font-semibold text-emerald-800">
-              Apps Script 웹 앱으로 각 문장별 탭 횟수와 전체 평균 자동 저장
+              학습 결과 & 문장별 탭(Tap) 빈도 및 평균치 자동 저장
             </div>
           </div>
         </div>
@@ -100,32 +100,46 @@ export const AppsScriptSyncCard: React.FC<AppsScriptSyncCardProps> = ({
           onClick={() => setShowDetails(!showDetails)}
           className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 p-1 bg-white/70 rounded-lg border border-emerald-300 cursor-pointer transition hover:bg-white"
         >
-          <span>{showDetails ? '요약 보기' : '문장별 상세'}</span>
+          <span>{showDetails ? '요약 보기' : '문장별 탭 상세'}</span>
           {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>
 
-      {/* Main Stats: Average Taps & Total Taps */}
-      <div className="grid grid-cols-2 gap-2 my-2">
-        <div className="bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs">
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 mb-0.5">
-            <MousePointerClick className="w-3.5 h-3.5 text-emerald-600" />
-            <span>문장당 평균 탭 빈도</span>
-          </div>
-          <div className="text-2xl font-black text-emerald-950 flex items-baseline gap-1">
-            <span>{analytics.averageTaps}</span>
-            <span className="text-xs font-bold text-slate-500">회 / 문장</span>
+      {/* Main Stats: Core learning results + Tap analytics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 my-2">
+        <div className="bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs text-center">
+          <div className="text-[10px] font-bold text-slate-500 mb-0.5">회차 / 단원</div>
+          <div className="text-sm font-black text-emerald-950 truncate" title={category}>
+            {playCount}회차 • {category.split('(')[0].trim()}
           </div>
         </div>
 
-        <div className="bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs">
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 mb-0.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>총 탭 횟수 / 문제 수</span>
+        <div className="bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs text-center">
+          <div className="text-[10px] font-bold text-slate-500 mb-0.5">정답 / 오답</div>
+          <div className="text-base font-black text-slate-900">
+            <span className="text-emerald-600">{correctCount}</span>
+            <span className="text-slate-400 mx-1">/</span>
+            <span className="text-rose-500">{wrongCount}</span>
           </div>
-          <div className="text-2xl font-black text-slate-900 flex items-baseline gap-1">
-            <span>{analytics.totalTaps}</span>
-            <span className="text-xs font-bold text-slate-500">회 ({analytics.sentences.length}문제)</span>
+        </div>
+
+        <div className="bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs text-center">
+          <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-emerald-700 mb-0.5">
+            <MousePointerClick className="w-3 h-3 text-emerald-600" />
+            <span>문장당 평균 탭</span>
+          </div>
+          <div className="text-base font-black text-emerald-900">
+            {analytics.averageTaps}회
+          </div>
+        </div>
+
+        <div className="bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs text-center">
+          <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-amber-700 mb-0.5">
+            <Sparkles className="w-3 h-3 text-amber-500" />
+            <span>총 탭 횟수</span>
+          </div>
+          <div className="text-base font-black text-slate-900">
+            {analytics.totalTaps}회
           </div>
         </div>
       </div>
@@ -149,7 +163,7 @@ export const AppsScriptSyncCard: React.FC<AppsScriptSyncCardProps> = ({
               <div>
                 <div>구글 시트에 각 문장별 탭 빈도 & 평균 저장 완료!</div>
                 <div className="text-[10px] text-emerald-800 font-medium">
-                  기록 시각: {sendResult.timestamp} • 누적 {playCount}회차
+                  기록 시각: {sendResult.timestamp} • {playCount}회차 (평균 {analytics.averageTaps}탭/문장)
                 </div>
               </div>
             </div>
@@ -242,7 +256,7 @@ export const AppsScriptSyncCard: React.FC<AppsScriptSyncCardProps> = ({
           </div>
 
           <div className="bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-600 border-t border-slate-200 flex justify-between">
-            <span>총 {analytics.sentences.length}개 문장 평균</span>
+            <span>총 {analytics.sentences.length}개 문장 평균 탭</span>
             <span className="text-emerald-700 font-black">{analytics.averageTaps}회</span>
           </div>
         </div>

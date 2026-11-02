@@ -11,7 +11,7 @@ export function getAppsScriptUrl(): string {
 
   let url = (envUrl && envUrl.trim().length > 0)
     ? envUrl.trim()
-    : 'https://script.google.com/macros/s/AKfycbwe3vcNJlqyeayYvPbmIUGFetf4-U8TkaP1gE9ehVSULh1U5QNBGW52LKjHevSMUrXOfg/exec';
+    : 'https://script.google.com/macros/s/AKfycbw-IM3riAxgFMqSkQ0uHXKaBlMldUCEaa4OtHGTpVCGUZ4F1KbJJInnCvQV1eP1aA5-Jw/exec';
 
   // Guard against accidental test URL (/dev) which forces developer login and fails for external students on Vercel
   if (url.endsWith('/dev')) {
@@ -157,7 +157,7 @@ export async function sendTapDataToGoogleAppsScript(params: {
       totalTaps: analytics.totalTaps,
       averageTaps: analytics.averageTaps,
       url: targetUrl,
-      message: '각 문장별 탭 빈도와 평균이 구글 시트에 성공적으로 전송되었습니다.'
+      message: '학습 결과(A~E열: 일시, 회차, 정답 수, 오답 수, 단원)가 구글 시트에 성공적으로 전송되었습니다.'
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : '알 수 없는 전송 오류가 발생했습니다.';
