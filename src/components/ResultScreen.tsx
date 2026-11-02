@@ -3,6 +3,8 @@ import confetti from 'canvas-confetti';
 import { UserAnswer, CostumeItem } from '../types';
 import { soundManager, speakEnglish } from '../utils/audio';
 import { RotateCcw, Home, Award, CheckCircle2, XCircle, AlertCircle, BookOpen, Sparkles, Shirt } from 'lucide-react';
+import { GoogleSheetsLogger } from './GoogleSheetsLogger';
+import { AppsScriptSyncCard } from './AppsScriptSyncCard';
 
 interface ResultScreenProps {
   answers: UserAnswer[];
@@ -10,6 +12,8 @@ interface ResultScreenProps {
   totalScore: number;
   newlyUnlockedItems: CostumeItem[];
   totalQuestions: number;
+  category: string;
+  playCount: number;
   onRetryAll: () => void;
   onRetryWrongOnly: (wrongAnswers: UserAnswer[]) => void;
   onGoHome: () => void;
@@ -22,12 +26,15 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   totalScore,
   newlyUnlockedItems,
   totalQuestions,
+  category,
+  playCount,
   onRetryAll,
   onRetryWrongOnly,
   onGoHome,
   onOpenWardrobe
 }) => {
   const correctCount = answers.filter(a => a.isCorrect).length;
+  const wrongCount = answers.length - correctCount;
   // Deduplicate wrongAnswers by questionId to guarantee unique entries
   const wrongAnswers = React.useMemo(() => {
     const map = new Map<number, UserAnswer>();
@@ -118,6 +125,23 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 2.5 Google Apps Script Web App Log: 문장별 탭 빈도 및 평균 (.env.local NEXT_PUBLIC_GOOGLE_SCRIPT_URL) */}
+      <AppsScriptSyncCard
+        answers={answers}
+        playCount={playCount}
+        correctCount={correctCount}
+        wrongCount={wrongCount}
+        category={category}
+      />
+
+      {/* 2.6 Personal Google Drive OAuth Logger (Optional individual sheet sync) */}
+      <GoogleSheetsLogger
+        playCount={playCount}
+        correctCount={correctCount}
+        wrongCount={wrongCount}
+        category={category}
+      />
 
       {/* 3. New Reward Unlocked Banner (150점, 200점, 250점... 보상 달성 시) */}
       {newlyUnlockedItems.length > 0 ? (

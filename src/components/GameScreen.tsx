@@ -81,6 +81,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     };
   }, []);
 
+  // Per-sentence tap frequency tracking
+  const [tapCountForCurrentQuestion, setTapCountForCurrentQuestion] = useState<number>(0);
+  const tapCountRef = useRef<number>(0);
+  tapCountRef.current = tapCountForCurrentQuestion;
+
   // Reset state on each new question
   useEffect(() => {
     if (!currentQuestion) return;
@@ -93,6 +98,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setCharacterDashing(false);
     setZoomedWord(null);
     setTimeLeft(5.0);
+    setTapCountForCurrentQuestion(0);
+    tapCountRef.current = 0;
 
     // Speak sentence prompt naturally
     const timer = setTimeout(() => {
@@ -128,6 +135,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       opt => opt.word.toLowerCase() === currentQuestion.correctWord.toLowerCase()
     );
 
+    const sentenceTapCount = Math.max(1, tapCountRef.current + (option ? 1 : 0));
+
     const newAnswer: UserAnswer = {
       questionId: currentQuestion.id,
       question: currentQuestion,
@@ -135,7 +144,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       selectedOptionId: option ? option.id : '',
       isCorrect,
       selectedLane: laneIndex,
-      correctLane: correctLaneIndex >= 0 ? correctLaneIndex : 0
+      correctLane: correctLaneIndex >= 0 ? correctLaneIndex : 0,
+      tapCount: sentenceTapCount
     };
 
     const nextAnswers = [...answersRef.current, newAnswer];
@@ -272,10 +282,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         e.preventDefault();
         setCharacterLane(prev => Math.max(0, prev - 1));
         soundManager.playLaneSwitch();
+        setTapCountForCurrentQuestion(prev => prev + 1);
+        tapCountRef.current += 1;
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         setCharacterLane(prev => Math.min(2, prev + 1));
         soundManager.playLaneSwitch();
+        setTapCountForCurrentQuestion(prev => prev + 1);
+        tapCountRef.current += 1;
       } else if (e.key === '1') {
         if (currentQuestion.options[0]) handleSelectOption(currentQuestion.options[0], 0);
       } else if (e.key === '2') {

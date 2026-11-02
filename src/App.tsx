@@ -41,6 +41,18 @@ export default function App() {
     }
   });
 
+  // Cumulative play count state (persists across sessions)
+  const [playCount, setPlayCount] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('vocarun_play_count') || '0', 10);
+    } catch {
+      return 0;
+    }
+  });
+
+  // Category of current game session
+  const [currentCategory, setCurrentCategory] = useState<string>('동아 중1 • 3과 Part 1 (Lesson 3 Core)');
+
   useEffect(() => {
     try {
       localStorage.setItem('vocarun_saved_wrongs', JSON.stringify(storedWrongAnswers));
@@ -54,8 +66,10 @@ export default function App() {
     let questionsToPlay: Question[] = [];
     if (chapter) {
       questionsToPlay = [...chapter.questions].sort(() => 0.5 - Math.random());
+      setCurrentCategory(`${chapter.badge} (${chapter.subtitle})`);
     } else {
       questionsToPlay = getRandomCurriculumQuestions(15);
+      setCurrentCategory('동아 중1 통합 (전체 랜덤 15제)');
     }
 
     // Shuffle options order inside each question so answers aren't always in identical lanes
@@ -86,6 +100,15 @@ export default function App() {
     const newTotal = oldTotal + score;
     setTotalScore(newTotal);
     saveTotalScore(newTotal);
+
+    // Increment play_count on game completion
+    const nextPlayCount = playCount + 1;
+    setPlayCount(nextPlayCount);
+    try {
+      localStorage.setItem('vocarun_play_count', String(nextPlayCount));
+    } catch {
+      // ignore
+    }
 
     const unlocked = getNewlyUnlockedItems(oldTotal, newTotal);
     setNewlyUnlockedItems(unlocked);
@@ -132,6 +155,7 @@ export default function App() {
       ...q,
       options: [...q.options].sort(() => 0.5 - Math.random())
     }));
+    setCurrentCategory(prev => (prev.includes('오답 복습') ? prev : `${prev} (오답 복습)`));
     setCurrentQuestions(wrongQuestions);
     setCurrentAnswers([]);
     setSessionScore(0);
@@ -152,6 +176,7 @@ export default function App() {
       ...q,
       options: [...q.options].sort(() => 0.5 - Math.random())
     }));
+    setCurrentCategory('오답노트 복습런 (Review Run)');
     setShowReviewModal(false);
     setCurrentQuestions(shuffled);
     setCurrentAnswers([]);
@@ -203,6 +228,7 @@ export default function App() {
             wrongAnswerCount={storedWrongAnswers.length}
             totalScore={totalScore}
             costume={costume}
+            playCount={playCount}
           />
         )}
 
@@ -222,6 +248,8 @@ export default function App() {
             totalScore={totalScore}
             newlyUnlockedItems={newlyUnlockedItems}
             totalQuestions={currentQuestions.length}
+            category={currentCategory}
+            playCount={playCount}
             onRetryAll={handleRetryAll}
             onRetryWrongOnly={handleRetryWrongOnly}
             onGoHome={() => setMode('START')}

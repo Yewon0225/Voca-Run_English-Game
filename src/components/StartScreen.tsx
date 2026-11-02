@@ -14,6 +14,7 @@ interface StartScreenProps {
   wrongAnswerCount: number;
   totalScore: number;
   costume?: CharacterCostume;
+  playCount?: number;
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({
@@ -22,7 +23,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   onOpenWardrobe,
   wrongAnswerCount,
   totalScore,
-  costume = DEFAULT_COSTUME
+  costume = DEFAULT_COSTUME,
+  playCount = 0
 }) => {
   const [selectedChapterId, setSelectedChapterId] = useState<string>('lesson3-core');
   const [showHowTo, setShowHowTo] = useState<boolean>(false);
@@ -53,18 +55,26 @@ export const StartScreen: React.FC<StartScreenProps> = ({
           동아(윤정미) 중1
         </span>
 
-        {/* Cumulative Score Badge */}
-        <button
-          onClick={() => {
-            soundManager.playClick();
-            onOpenWardrobe();
-          }}
-          className="text-xs font-black text-amber-950 bg-gradient-to-r from-amber-200 to-pink-200 px-3 py-1 rounded-full border border-amber-300 flex items-center gap-1.5 shadow-xs hover:brightness-105 active:scale-95 transition cursor-pointer"
-          title="누적 점수 & 옷장 열기"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-          <span>누적 {totalScore}점</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          {playCount > 0 && (
+            <span className="text-[11px] font-black text-slate-700 bg-white/90 px-2.5 py-1 rounded-full border border-slate-200/90 shadow-xs">
+              🎮 {playCount}회 플레이
+            </span>
+          )}
+
+          {/* Cumulative Score Badge */}
+          <button
+            onClick={() => {
+              soundManager.playClick();
+              onOpenWardrobe();
+            }}
+            className="text-xs font-black text-amber-950 bg-gradient-to-r from-amber-200 to-pink-200 px-3 py-1 rounded-full border border-amber-300 flex items-center gap-1.5 shadow-xs hover:brightness-105 active:scale-95 transition cursor-pointer"
+            title="누적 점수 & 옷장 열기"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>누적 {totalScore}점</span>
+          </button>
+        </div>
 
         <div className="flex items-center gap-1">
           <button
